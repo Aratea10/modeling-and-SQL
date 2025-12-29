@@ -3,6 +3,7 @@ create schema if not exists academia_fjmm;
 set schema 'academia_fjmm';
 
 
+
 -- Inicio la inserción de datos en una tabla auxiliar:
 CREATE TABLE tmp_academia (
 	nombre varchar(50) NULL,
@@ -2183,6 +2184,149 @@ inner join tmp_academia ta on ta.poblacion = p.valor and ta.provincia = pr.valor
 select * from contacto inner join direccion_postal on contacto.dni = direccion_postal.dni;
 
 
+select distinct ta.dni, ta.fecha_matriculacion::date, ta.edicion, ta.curso
+from tmp_academia ta 
+where ta.edicion is not null;
+
+
+
+alter table matricula add constraint unique_alumno_edicion unique (dni_alumno, id_edicion);
+-- create unique index unique_alumno_edicion on matricula (dni_alumno, id_edicion)
+
+
+insert into matricula (dni_alumno, fecha_matricula, id_edicion)
+select distinct ta.dni, ta.fecha_matriculacion::date, ed.id
+from tmp_academia ta 
+inner join curso cu on ta.curso = cu.nombre 
+inner join edicion ed on cu.id = ed.id_curso and ed.numero = ta.edicion 
+where ta.edicion is not null;
+
+
+
+alter table profesor add constraint unique_profesor_edicion_asignatura unique (dni_profesor, id_edicion, id_asignatura);
+
+insert into profesor (dni_profesor, id_asignatura, id_edicion)
+select distinct ta.dni, asi.id, ed.id
+from tmp_academia ta 
+inner join curso cu on ta.curso = cu.nombre 
+inner join asignatura asi on asi.nombre = ta.asignatura
+inner join edicion ed on cu.id = ed.id_curso
+where ta.fecha_matriculacion = '';
+
+
+insert into telefono (dni, valor)
+select distinct dni, telefono from tmp_academia;
+
+
+insert into email (dni, valor)
+select distinct dni, email from tmp_academia;
+
+select distinct ta.dni, ta.nota, ta.asignatura, asi.id
+from tmp_academia ta
+inner join asignatura asi on asi.nombre = ta.asignatura
+where ta.nota is not null
+;
+
+
+
+alter table nota add constraint unique_nota_alumno unique (dni, id_asignatura);
+
+insert into nota (dni, valor, id_asignatura)
+select distinct ta.dni, ta.nota, asi.id
+from tmp_academia ta
+inner join asignatura asi on asi.nombre = ta.asignatura
+where ta.nota is not null;
+
+
+drop table tmp_academia;
+
+
+
+select * from matricula;
+
+
+
+/*
+ * Quiero sacar todos los contactos y saber cuales son alumnos
+ */
+select * from contacto c
+left join matricula m on c.dni = m.dni_alumno;
+
+-- y ahora quiero, a partir de aquí, saber los que son profesores
+
+select * from contacto c
+left join matricula m on c.dni = m.dni_alumno
+where m.id is null;
+
+
+
+/*
+ * Vamos a ver si los alumnos han terminado el bootcamp.
+ * 
+ * Para ello tenemos que ver si nota en todas las asignaturas que forman parte de ese bootcamp.
+ * 
+ * Al final queremos saber los que NO han terminado.
+ */
+
+
+select m.dni_alumno, p.id_edicion, asi.nombre, n.valor from profesor p
+inner join asignatura asi on asi.id = p.id_asignatura
+inner join matricula m on m.id_edicion = p.id_edicion
+left join nota n on n.id_asignatura = asi.id and m.dni_alumno = n.dni
+where n.id is null;
+
+
+-- y ahora voy a agrupar para saber cuantas asignaturas le faltan para terminar.
+
+select m.dni_alumno, p.id_edicion, count(*) numero_asignaturas from profesor p
+inner join asignatura asi on asi.id = p.id_asignatura
+inner join matricula m on m.id_edicion = p.id_edicion
+left join nota n on n.id_asignatura = asi.id and m.dni_alumno = n.dni
+where n.id is null
+group by m.dni_alumno, p.id_edicion;
+
+-- y ahora quiero saber a cuantos le queda más de una asignatura
+
+select m.dni_alumno, p.id_edicion, count(*) numero_asignaturas from profesor p
+inner join asignatura asi on asi.id = p.id_asignatura
+inner join matricula m on m.id_edicion = p.id_edicion
+left join nota n on n.id_asignatura = asi.id and m.dni_alumno = n.dni
+where n.id is null
+group by m.dni_alumno, p.id_edicion
+having count(*) > 1;
+
+-- y ahora quiero las que no se ha examinado o a suspendido.
+
+select m.dni_alumno, p.id_edicion, count(*) numero_asignaturas from profesor p
+inner join asignatura asi on asi.id = p.id_asignatura
+inner join matricula m on m.id_edicion = p.id_edicion
+left join nota n on n.id_asignatura = asi.id and m.dni_alumno = n.dni
+where n.id is null or n.valor < 5
+group by m.dni_alumno, p.id_edicion
+having count(*) > 1;
+
+
+-- Ahora voy a añadir los datos del contacto, pero utilizando subconsultas.
+select * from (
+	select m.dni_alumno, p.id_edicion, count(*) numero_asignaturas from profesor p
+	inner join asignatura asi on asi.id = p.id_asignatura
+	inner join matricula m on m.id_edicion = p.id_edicion
+	left join nota n on n.id_asignatura = asi.id and m.dni_alumno = n.dni
+	where n.id is null or n.valor < 5
+	group by m.dni_alumno, p.id_edicion
+	having count(*) > 1
+) ap 
+inner join contacto c on c.dni = ap.dni_alumno;
+
+
+/*
+ * Vamos a sacar la nota media por asignatura. Es decir, la media entre todos los alumnos para asignatura.
+ * 
+ * Una vez lo tengamos, vamos sacar dos cosas:
+ * 
+ * - Los alumnnos que están por encima de la media en cada asignatura
+ * - El profesor cuya asignatura sea más fácil (es decir, que tiene la nota media más alta)
+ */
 
 
 
