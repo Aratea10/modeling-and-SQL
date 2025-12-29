@@ -3,7 +3,6 @@ create schema if not exists academia_fjmm;
 set schema 'academia_fjmm';
 
 
-
 -- Inicio la inserción de datos en una tabla auxiliar:
 CREATE TABLE tmp_academia (
 	nombre varchar(50) NULL,
@@ -1947,5 +1946,162 @@ INSERT INTO tmp_academia (nombre,apellido_1,apellido_2,dni,email,telefono,movil,
 	 ('Rosa maria','Hidalgo','Martin','4460151Z','rosa maria.hidalgo.martin@gmail.com',908473191,678721487,'2015-09-02','DevOps & Cloud Computing Full Stack','2023-10-23','Torresandino','Burgos','Dolores Ibárruri','50 2B','Introducción Despliegue en Servidores',5),
 	 ('Rosa maria','Hidalgo','Martin','4460151Z','rosa maria.hidalgo.martin@gmail.com',908473191,678721487,'2015-09-02','DevOps & Cloud Computing Full Stack','2023-10-23','Torresandino','Burgos','Dolores Ibárruri','50 2B','Python',3),
 	 ('Rosa maria','Hidalgo','Martin','4460151Z','rosa maria.hidalgo.martin@gmail.com',908473191,678721487,'2015-09-02','DevOps & Cloud Computing Full Stack','2023-10-23','Torresandino','Burgos','Dolores Ibárruri','50 2B','Plataformas Cloud y Kubernetes',10);
+
+
+create table if not exists curso(
+	id smallserial primary key,
+	nombre varchar(100) not null
+);
+
+create table if not exists edicion(
+	id smallserial primary key,
+	numero smallint not null,
+	id_curso int not null,
+	constraint curso_edicion_fk foreign key (id_curso) references curso(id)
+);
+
+/*
+ * Multilínea con barra/asterisco*
+ * 
+ */
+
+-- Una sola línea
+
+create table if not exists matricula(
+	id serial primary key,
+	dni_alumno varchar(9) not null,
+	id_edicion int not null,
+	fecha_matricula date not null
+);
+
+create table if not exists contacto(
+	dni varchar(9) primary key,
+	nombre varchar(25) not null,
+	apellido_1 varchar(25) not null,
+	apellido_2 varchar(25),
+	fecha_nacimiento date not null,
+	contraseña varchar(30) not null default '1234'
+);
+
+create table if not exists direccion_postal(
+	dni varchar(9) primary key,
+	calle varchar(25) not null,
+	numero int not null,
+	piso varchar(10),
+	id_codigo_postal int not null
+);
+
+
+create table if not exists codigo_postal(
+	id serial primary key,
+	valor int not null,
+	id_poblacion int not null
+);
+
+
+create table if not exists poblacion(
+	id serial primary key,
+	valor varchar(25) not null,
+	id_provincia smallint not null
+);
+
+create table if not exists provincia(
+	id smallserial primary key,
+	valor varchar(25) not null
+);
+
+create table if not exists telefono(
+	dni varchar(9) primary key,
+	valor varchar(25) not null
+);
+
+create table if not exists email(
+	dni varchar(9) primary key,
+	valor varchar(50) not null
+);
+
+create table if not exists nota(
+	id smallserial primary key,
+	dni varchar(9) not null,
+	valor smallint not null default 0,
+	id_asignatura smallint not null
+);
+
+create table if not exists profesor(
+	id smallserial primary key,
+	dni_profesor varchar(9) not null,
+	id_edicion smallint not null,
+	id_asignatura smallint not null
+);
+
+
+create table if not exists asignatura(
+	id smallserial primary key,
+	nombre varchar(50) not null,
+	descripcion text
+);
+
+/* Ejemplos de alter table modificando columnas:
+		alter table contacto drop column contraseña;
+		alter table contacto add column contraseña varchar(30) not null default 1234;
+*/
+
+
+alter table matricula add constraint contacto_matricula_fk foreign key (dni_alumno) references contacto(dni) on delete cascade;
+alter table matricula add constraint edicion_matricula_fk foreign key (id_edicion) references edicion(id);
+
+alter table direccion_postal add constraint contacto_direccion_postal_fk foreign key (dni) references contacto(dni) on delete cascade;
+alter table direccion_postal add constraint codigo_postal_direccion_postal_fk foreign key (id_codigo_postal) references codigo_postal(id);
+
+alter table codigo_postal add constraint poblacion_codigo_postal_fk foreign key (id_poblacion) references poblacion(id);
+
+alter table poblacion add constraint provincia_poblacion_fk foreign key (id_provincia) references provincia(id);
+
+
+alter table telefono add constraint contacto_telefono_fk foreign key (dni) references contacto(dni) on delete cascade;
+alter table email add constraint contacto_email_fk foreign key (dni) references contacto(dni) on delete cascade;
+
+alter table nota add constraint contacto_nota_fk foreign key (dni) references contacto(dni) on delete cascade;
+alter table nota add constraint asignatura_nota_fk foreign key (id_asignatura) references asignatura(id);
+
+alter table profesor add constraint contacto_profesor_fk foreign key (dni_profesor) references contacto(dni);
+alter table profesor add constraint edicion_profesor_fk foreign key (id_edicion) references edicion(id);
+alter table profesor add constraint edicion_asignatura_fk foreign key (id_asignatura) references asignatura(id);
+
+
+/*
+ * alter table profesor drop constraint edicion_asignatura_fk;
+ * 
+ */
+
+
+/*
+ * UNIQUE solo funciona con valores EXACTOS. No comprueba mayúsculas y minúsculas
+ * alter table provincia add constraint unique_valor_provincia unique (valor);
+ */
+
+create unique index unique_valor_provincia on provincia (lower(valor));
+create unique index unique_valor_poblacion on poblacion (lower(valor), id_provincia);
+
+create index notas_por_asignatura on nota (id_asignatura);
+
+alter table nota add constraint notas_entre_0_y_10 check (valor between 0 and 10);
+
+
+create unique index unique_nombre_asignatura on asignatura (lower(nombre));
+
+/*
+alter table asignatura drop column descripcion;
+alter table asignatura add column descripcion text;
+
+alter table asignatura drop column nombre;
+alter table asignatura add column nombre varchar(50) not null;
+*/
+
+insert into asignatura (nombre)
+select distinct asignatura from tmp_academia;
+
+select * from asignatura;
+
 
 
