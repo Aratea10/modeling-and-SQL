@@ -560,57 +560,55 @@ INSERT INTO tmp_videoclub (id_copia,fecha_alquiler_texto,dni,nombre,apellido_1,a
 	 (308,'2024-01-25','1638778M','Angel','Lorenzo','Caballero','angel.lorenzo.caballero@gmail.com','698073069','47008','2011-07-30','82','1','Izq.','Sol','1Izq.','El bazar de las sorpresas','Comedia','Alfred Kralik es el tímido jefe de vendedores de Matuschek y Compañía, una tienda de Budapest. Todas las mañanas, los empleados esperan juntos la llegada de su jefe, Hugo Matuschek. A pesar de su timidez, Alfred responde al anuncio de un periódico y mantiene un romance por carta. Su jefe decide contratar a una tal Klara Novak en contra de la opinión de Alfred. En el trabajo, Alfred discute constantemente con ella, sin sospechar que es su corresponsal secreta.','Ernst Lubitsch','2024-01-25',NULL);
 
 CREATE TABLE genero (
-  id_genero      SERIAL PRIMARY KEY,
-  nombre_genero  VARCHAR(50) UNIQUE NOT NULL
+    id_genero      SERIAL PRIMARY KEY,
+    nombre_genero  VARCHAR(50) UNIQUE NOT NULL
 );
 
 CREATE TABLE pelicula (
-  id_pelicula  SERIAL PRIMARY KEY,
-  titulo       VARCHAR(200) NOT NULL,
-  sinopsis     TEXT,
-  director     VARCHAR(120),
-  id_genero    INT NOT NULL REFERENCES genero(id_genero) ON UPDATE CASCADE
+    id_pelicula  SERIAL PRIMARY KEY,
+    titulo       VARCHAR(200) NOT NULL,
+    sinopsis     TEXT,
+    director     VARCHAR(120),
+    id_genero    INT NOT NULL REFERENCES genero(id_genero) ON UPDATE CASCADE
 );
 
 CREATE TABLE socio (
-  numero_socio     SERIAL PRIMARY KEY,
-  dni              VARCHAR(50) UNIQUE NOT NULL,
-  nombre           VARCHAR(50) NOT NULL,
-  apellido_1       VARCHAR(50) NOT NULL,
-  apellido_2       VARCHAR(50),
-  fecha_nacimiento DATE,
-  telefono         VARCHAR(50),
-  email            VARCHAR(120)
+    numero_socio     SERIAL PRIMARY KEY,
+    dni              VARCHAR(50) UNIQUE NOT NULL,
+    nombre           VARCHAR(50) NOT NULL,
+    apellido_1       VARCHAR(50) NOT NULL,
+    apellido_2       VARCHAR(50),
+    fecha_nacimiento DATE,
+    telefono         VARCHAR(50),
+    email            VARCHAR(120)
 );
 
 CREATE TABLE direccion (
-  numero_socio  INT PRIMARY KEY
+    numero_socio  INT PRIMARY KEY
     REFERENCES socio(numero_socio) ON UPDATE CASCADE ON DELETE CASCADE,
-  codigo_postal VARCHAR(5),
-  calle         VARCHAR(120),
-  numero        VARCHAR(10),
-  piso          VARCHAR(10)
+    codigo_postal VARCHAR(5),
+    calle         VARCHAR(120),
+    numero        VARCHAR(10),
+    piso          VARCHAR(10)
 );
 
 CREATE TABLE copia (
-  id_copia     INT PRIMARY KEY,
-  id_pelicula  INT NOT NULL REFERENCES pelicula(id_pelicula) ON UPDATE CASCADE,
-  estado       VARCHAR(20) DEFAULT 'disponible',
-  CONSTRAINT chk_estado CHECK (estado IN ('disponible','prestada','mantenimiento','retirada'))
+    id_copia     INT PRIMARY KEY,
+    id_pelicula  INT NOT NULL REFERENCES pelicula(id_pelicula) ON UPDATE CASCADE
 );
 
 CREATE TABLE prestamo (
-  id_prestamo       SERIAL PRIMARY KEY,
-  numero_socio      INT NOT NULL REFERENCES socio(numero_socio) ON UPDATE CASCADE,
-  id_copia          INT NOT NULL REFERENCES copia(id_copia) ON UPDATE CASCADE,
-  fecha_prestamo    DATE NOT NULL,
-  fecha_devolucion  DATE,
-  CONSTRAINT chk_fechas CHECK (fecha_devolucion IS NULL OR fecha_devolucion >= fecha_prestamo)
+    id_prestamo       SERIAL PRIMARY KEY,
+    numero_socio      INT NOT NULL REFERENCES socio(numero_socio) ON UPDATE CASCADE,
+    id_copia          INT NOT NULL REFERENCES copia(id_copia) ON UPDATE CASCADE,
+    fecha_prestamo    DATE NOT NULL,
+    fecha_devolucion  DATE,
+    CONSTRAINT chk_fechas CHECK (fecha_devolucion IS NULL OR fecha_devolucion >= fecha_prestamo)
 );
 
 CREATE UNIQUE INDEX ux_prestamo_copia_abierto
-  ON prestamo(id_copia)
-  WHERE fecha_devolucion IS NULL;
+    ON prestamo(id_copia)
+    WHERE fecha_devolucion IS NULL;
 
 
 INSERT INTO genero(nombre_genero)
@@ -620,37 +618,37 @@ WHERE genero IS NOT NULL;
 
 INSERT INTO pelicula(titulo, sinopsis, director, id_genero)
 SELECT DISTINCT
-       t.titulo,
-       t.sinopsis,
-       t.director,
-       g.id_genero
+    t.titulo,
+    t.sinopsis,
+    t.director,
+    g.id_genero
 FROM tmp_videoclub t
 JOIN genero g ON g.nombre_genero = t.genero
 WHERE t.titulo IS NOT NULL;
 
 INSERT INTO socio(dni, nombre, apellido_1, apellido_2, email, telefono, fecha_nacimiento)
 SELECT DISTINCT
-  t.dni,
-  t.nombre,
-  t.apellido_1,
-  t.apellido_2,
-  t.email,
-  t.telefono,
-  NULLIF(t.fecha_nacimiento,'')::date
+    t.dni,
+    t.nombre,
+    t.apellido_1,
+    t.apellido_2,
+    t.email,
+    t.telefono,
+    NULLIF(t.fecha_nacimiento,'')::date
 FROM tmp_videoclub t
 WHERE t.dni IS NOT NULL;
 
 INSERT INTO direccion(numero_socio, codigo_postal, calle, numero, piso)
 SELECT s.numero_socio, t.codigo_postal, t.calle, t.numero, t.piso
 FROM (
-  SELECT DISTINCT dni, codigo_postal, calle, numero, piso
-  FROM tmp_videoclub
-  WHERE codigo_postal IS NOT NULL OR calle IS NOT NULL
+    SELECT DISTINCT dni, codigo_postal, calle, numero, piso
+    FROM tmp_videoclub
+    WHERE codigo_postal IS NOT NULL OR calle IS NOT NULL
 ) t
 JOIN socio s ON s.dni = t.dni;
 
-INSERT INTO copia(id_copia, id_pelicula, estado)
-SELECT DISTINCT t.id_copia, p.id_pelicula, 'disponible'
+INSERT INTO copia(id_copia, id_pelicula)
+SELECT DISTINCT t.id_copia, p.id_pelicula
 FROM tmp_videoclub t
 JOIN pelicula p ON p.titulo = t.titulo
 WHERE t.id_copia IS NOT NULL;
@@ -660,27 +658,17 @@ SELECT s.numero_socio, t.id_copia, t.fecha_alquiler, t.fecha_devolucion
 FROM tmp_videoclub t
 JOIN socio s ON s.dni = t.dni
 WHERE t.id_copia IS NOT NULL
-  AND t.fecha_alquiler IS NOT NULL;
-
-UPDATE copia c
-SET estado = 'prestada'
-WHERE EXISTS (
-  SELECT 1 FROM prestamo pr
-  WHERE pr.id_copia = c.id_copia
-    AND pr.fecha_devolucion IS NULL
-);
+    AND t.fecha_alquiler IS NOT NULL;
 
 SELECT  p.titulo,
-        COUNT(c.id_copia) AS copias_disponibles
+    COUNT(c.id_copia) AS copias_disponibles
 FROM    copia c
 JOIN    pelicula p ON p.id_pelicula = c.id_pelicula
 LEFT JOIN prestamo pr
-       ON pr.id_copia = c.id_copia
-      AND pr.fecha_devolucion IS NULL
+    ON pr.id_copia = c.id_copia
+    AND pr.fecha_devolucion IS NULL
 WHERE   pr.id_prestamo IS NULL
-  AND   c.estado = 'disponible'
 GROUP BY p.titulo
 ORDER BY p.titulo;
 
 COMMIT;
-
