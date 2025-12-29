@@ -2330,3 +2330,112 @@ inner join contacto c on c.dni = ap.dni_alumno;
 
 
 
+select id_asignatura, round(avg(valor),2) Nota_media from nota
+group by id_asignatura 
+order by id_asignatura ;
+
+select c.dni, c.nombre , c.apellido_1 ,c.apellido_2, a.nombre , nm.nota_media, n.valor from (
+	select id_asignatura, round(avg(valor),2) Nota_media from nota
+	group by id_asignatura 
+	order by id_asignatura
+) nm
+inner join nota n on n.id_asignatura = nm.id_asignatura
+inner join contacto c on c.dni = n.dni
+inner join asignatura a on a.id = n.id_asignatura 
+where n.valor > nm.nota_media;
+
+select distinct p.dni_profesor, nm.nota_media, p.id_asignatura, c.nombre, a.nombre from (
+	select id_asignatura, round(avg(valor),2) Nota_media from nota
+	group by id_asignatura 
+	order by nota_media desc
+	limit 1
+) nm
+inner join profesor p on p.id_asignatura = nm.id_asignatura
+inner join contacto c on c.dni = p.dni_profesor
+inner join asignatura a on a.id = p.id_asignatura;
+
+select * from profesor p
+inner join matricula m on m.id_edicion = p.id_edicion
+left join nota n on n.dni = m.dni_alumno and n.id_asignatura = p.id_asignatura
+where n.valor is null
+order by dni_alumno;
+
+select * from (
+	select id_asignatura, round(avg(valor),2) Nota_media from nota
+	group by id_asignatura 
+	order by nota_media desc
+	limit 1
+) nm
+inner join profesor p on p.id_asignatura = nm.id_asignatura
+inner join matricula m on m.id_edicion = p.id_edicion
+left join nota n on n.dni = m.dni_alumno and n.id_asignatura = p.id_asignatura
+inner join contacto c on c.dni = m.dni_alumno
+where n.valor is null
+order by dni_alumno;
+
+
+with nm as (
+	select id_asignatura, round(avg(valor),2) Nota_media from nota
+	group by id_asignatura 
+	order by nota_media desc
+	limit 1
+)
+select * from nm
+inner join profesor p on p.id_asignatura = nm.id_asignatura
+inner join matricula m on m.id_edicion = p.id_edicion
+left join nota n on n.dni = m.dni_alumno and n.id_asignatura = p.id_asignatura
+inner join contacto c on c.dni = m.dni_alumno
+where n.valor is null
+order by dni_alumno;
+
+
+create view alumnos_que_no_se_han_examinado_de_la_asignatura_con_mayor_nota_media as
+
+with nm as (
+select id_asignatura, round(avg(valor),2) Nota_media from nota
+	group by id_asignatura 
+	order by nota_media desc
+	limit 1
+)
+select c.dni, c.nombre, c.apellido_1, c.apellido_2, m.fecha_matricula, asi.nombre asignatura from nm
+inner join profesor p on p.id_asignatura = nm.id_asignatura
+inner join matricula m on m.id_edicion = p.id_edicion
+left join nota n on n.dni = m.dni_alumno and n.id_asignatura = p.id_asignatura
+inner join contacto c on c.dni = m.dni_alumno
+inner join asignatura asi on asi.id = p.id_asignatura
+where n.valor is null
+order by dni_alumno;
+
+
+create table consulta_como_tabla as (
+with nm as (
+	select id_asignatura, round(avg(valor),2) Nota_media from nota
+	group by id_asignatura 
+	order by nota_media desc
+	limit 1
+)
+select c.dni, c.nombre, c.apellido_1, c.apellido_2, m.fecha_matricula, asi.nombre asignatura from nm
+inner join profesor p on p.id_asignatura = nm.id_asignatura
+inner join matricula m on m.id_edicion = p.id_edicion
+left join nota n on n.dni = m.dni_alumno and n.id_asignatura = p.id_asignatura
+inner join contacto c on c.dni = m.dni_alumno
+inner join asignatura asi on asi.id = p.id_asignatura
+where n.valor is null
+order by dni_alumno
+);
+
+-- Compruebo que existe dirección:
+select * from direccion_postal dp where dp.dni = '3673477D';
+
+
+-- Borro un registro para comprobar que desaparece en cascada
+delete from contacto c where c.dni = '3673477D';
+
+-- Ya no existe la dirección
+select * from direccion_postal dp where dp.dni = '3673477D';
+
+
+
+
+
+
